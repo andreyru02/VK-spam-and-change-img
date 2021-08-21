@@ -311,9 +311,11 @@ def send_msg(friend, msg, token):
         elif 'error' in resp:
             if resp.get('error').get('error_code') == 14:
                 print('[INFO] Выполняется решении каптчи.')
+                captcha_sid = resp.get('error').get('captcha_sid')
                 captcha_img = resp.get('error').get('captcha_img')
-                captcha = captcha_solution(captcha_img)
-                resp = requests.get(method, params={**params_def, **captcha})
+                captcha_key = captcha_solution(captcha_img)
+                captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
+                resp = requests.get(method, params={**params_def, **captcha_send})
                 if resp.status_code == requests.codes.ok and 'response' in resp.json():
                     print('[INFO] Сообщение отправлено.')
         else:
@@ -327,7 +329,7 @@ def send_msg(friend, msg, token):
 def captcha_solution(captcha_img):
     """
     Решение капчи
-    :return: {'captcha_sid': taskId, 'captcha_key': captchaSolve}
+    :return: captcha_key
     """
     break_count = 3
     while break_count > 0:
@@ -341,8 +343,8 @@ def captcha_solution(captcha_img):
         if not user_answer['error']:
             # решение капчи
             print('[INFO] Капча решена.')
-            captcha_resp = {'captcha_sid': user_answer['taskId'], 'captcha_key': user_answer['captchaSolve']}
-            return captcha_resp
+            # captcha_resp = {'captcha_sid': user_answer['taskId'], 'captcha_key': user_answer['captchaSolve']}
+            return user_answer['captchaSolve']
         elif user_answer['error']:
             break_count -= 1
             print('[ERROR] Ошибка при решении капчи. Повтор.')
