@@ -330,7 +330,7 @@ def captcha_solution(captcha_img):
     :return: {'captcha_sid': taskId, 'captcha_key': captchaSolve}
     """
     break_count = 3
-    while break_count <= 0:
+    while break_count > 0:
         with open('captcha.txt') as file:
             rucaptcha_key = file.readline()
         # Ссылка на изображения для расшифровки
