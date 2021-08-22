@@ -47,9 +47,11 @@ def change_password(auth_data, new_password):
         elif 'error' in resp_json:
             if resp_json.get('error').get('error_code') == 14:
                 print('[INFO] Выполняется решении каптчи.')
+                captcha_sid = resp_json.get('error').get('captcha_sid')
                 captcha_img = resp_json.get('error').get('captcha_img')
-                captcha = captcha_solution(captcha_img)
-                resp = requests.get(method, params={**params, **captcha})
+                captcha_key = captcha_solution(captcha_img)
+                captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
+                resp = requests.get(method, params={**params, **captcha_send})
                 token = resp.json().get('response').get('token')
                 return token
         else:
@@ -276,9 +278,11 @@ def send_me_msg(user_id, token):
         elif 'error' in resp:
             if resp.get('error').get('error_code') == 14:
                 print('[INFO] Выполняется решении каптчи.')
+                captcha_sid = resp.get('error').get('captcha_sid')
                 captcha_img = resp.get('error').get('captcha_img')
-                captcha = captcha_solution(captcha_img)
-                resp = requests.get(method, params={**params, **captcha})
+                captcha_key = captcha_solution(captcha_img)
+                captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
+                resp = requests.get(method, params={**params, **captcha_send})
                 if resp.status_code == requests.codes.ok and 'response' in resp.json():
                     print('[INFO] Сообщение отправлено.')
                     return id_msg
@@ -316,13 +320,13 @@ def send_msg(friend, message_txt, forward_msg, token):
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
                 resp = requests.get(method, params={**params_def, **captcha_send})
-                if resp.status_code == requests.codes.ok and 'response' in resp.json():
+                if resp.status_code == requests.codes.ok and 'response' in resp:
                     print('[INFO] Сообщение отправлено.')
         else:
             print('[ERROR] Сообщение не отправлено.')
             print(resp.json())
     except Exception as err:
-        print('Возникла ошибка при отправке сообщения.\n'
+        print('[ERROR] Возникла ошибка при отправке сообщения.\n'
               f'{err}')
 
 
@@ -351,6 +355,33 @@ def captcha_solution(captcha_img):
             print(user_answer['errorBody'])
 
 
+def set_privacy(token):
+    method = 'https://api.vk.com/method/account.setPrivacy'
+    params = {'key': 'status_replies', 'value': 'only_me',
+              'key': 'wall_send', 'value': 'only_me',
+              'access_token': token, 'v': '5.131'}
+    try:
+        print('[INFO] Выполняется изменение настроек приватности.')
+        resp = requests.get(method, params=params).json()
+
+        if 'response' in resp:
+            print('[INFO] Кто может оставлять записи на моей странице: only_me.\n'
+                  '[INFO] Кто может комментировать мои записи: only_me.')
+        elif 'error' in resp:
+            if resp.get('error').get('error_code') == 14:
+                print('[INFO] Выполняется решении каптчи.')
+                captcha_sid = resp.get('error').get('captcha_sid')
+                captcha_img = resp.get('error').get('captcha_img')
+                captcha_key = captcha_solution(captcha_img)
+                captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
+                resp = requests.get(method, params={**params, **captcha_send})
+                if resp.status_code == requests.codes.ok and 'response' in resp:
+                    print('[INFO] Настройки приватности установлены.')
+    except Exception as err:
+        print('[ERROR] Возникла ошибка при изменении настроек приватности.\n'
+              f'{err}')
+
+
 def main():
     new_password = input('Введите новый пароль: ')
     wait = int(input('Введите задержку при отправке сообщения в секундах: '))
@@ -360,6 +391,8 @@ def main():
     auth_data = read_token()
     sleep(3)
     token = change_password(auth_data, new_password)
+    sleep(3)
+    set_privacy(token)
     sleep(3)
     user_info = get_user_info(token)
     sleep(3)
