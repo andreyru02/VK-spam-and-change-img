@@ -34,6 +34,8 @@ def change_password(auth_data, new_password):
         resp = requests.get(method, params=params)
         token = resp.json().get('response').get('token')
         resp_json = resp.json()
+        if token is None:
+            return
 
         print(resp.json())
 
@@ -407,6 +409,9 @@ def main():
     for auth in auth_data:
         auth_data_list = auth.strip('\n').split(':')
         token = change_password(auth_data_list, new_password)
+        if token is None:
+            print(f'Аккаунт {auth_data_list} невалидный. Пропускаем.')
+            continue
         sleep(3)
         set_privacy(token)
         sleep(3)
