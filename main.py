@@ -428,6 +428,9 @@ def main():
             print(f'[INFO] Сообщение {count_friends} из {len(friends)}.\n'
                   f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
                   f'Пауза на {wait} секунд.')
+            if count_friends == 300:
+                print('[INFO] Достигнут лимит сообщений. Переходим к следующему аккаунту.')
+                break
             sleep(wait)
         count_account += 1
 
