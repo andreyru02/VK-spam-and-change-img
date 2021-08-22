@@ -94,14 +94,14 @@ def get_user_info(token):
         print(resp_json)
 
 
-def change_img(user_info):
+def change_img(user_info, x, y):
     """
     Подставка имени и фамилии по координатам в изображение
     """
     image = Image.open("image.png")
     font = ImageFont.truetype("font.ttf", 26)
     drawer = ImageDraw.Draw(image)
-    drawer.text((695, 427), f"{user_info[1]} {user_info[2]}", font=font, fill='black')
+    drawer.text((x, y), f"{user_info[1]} {user_info[2]}", font=font, fill='black')
     image.save('new_img.png')
     print('[INFO] Выполнено изменение изображения.\n'
           'Новое изображение сохранено с именем new_img.png')
@@ -290,14 +290,14 @@ def send_me_msg(user_id, token):
               f'{err}')
 
 
-def send_msg(friend, msg, token):
+def send_msg(friend, message_txt, forward_msg, token):
     """Рассылка сообщений"""
     method = 'https://api.vk.com/method/messages.send'
     params_def = {
         'user_id': friend,
         'random_id': 0,
-        'message': '.',
-        'forward_messages': msg,
+        'message': message_txt,
+        'forward_messages': forward_msg,
         'access_token': token,
         'v': '5.131'
     }
@@ -354,13 +354,16 @@ def captcha_solution(captcha_img):
 def main():
     new_password = input('Введите новый пароль: ')
     wait = int(input('Введите задержку при отправке сообщения в секундах: '))
+    coordinate_x = int(input('Введите координату x: '))
+    coordinate_y = int(input('Введите координату y: '))
+    message_txt = input('Введите текст сообщения: ')
     auth_data = read_token()
     sleep(3)
     token = change_password(auth_data, new_password)
     sleep(3)
     user_info = get_user_info(token)
     sleep(3)
-    change_img(user_info)
+    change_img(user_info, coordinate_x, coordinate_y)
     sleep(3)
     # story_info = upload_stories(token)
     sleep(3)
@@ -370,7 +373,7 @@ def main():
 
     count = 0
     for friend in friends:
-        send_msg(friend, id_msg, token)
+        send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
         count += 1
         print(f'[INFO] Сообщение {count} из {len(friends)}.\n'
               f'Пауза на {wait} секунд.')
