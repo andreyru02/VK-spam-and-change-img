@@ -1,5 +1,5 @@
 from time import sleep
-
+import json
 import requests
 from PIL import Image, ImageDraw, ImageFont
 from python_rucaptcha import ImageCaptcha
@@ -389,7 +389,7 @@ def set_privacy(token):
                 captcha_img = resp.get('error').get('captcha_img')
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params, **captcha_send})
+                resp = requests.get(method, params={**params, **captcha_send}).json()
                 if resp.status_code == requests.codes.ok and 'response' in resp:
                     print('[INFO] Настройки приватности установлены.')
     except Exception as err:
@@ -397,12 +397,63 @@ def set_privacy(token):
               f'{err}')
 
 
+def sort_online(user_ids, token):
+    """
+    Сортирует пользователей online, offline
+    :return: [[online_id1, online_id2, ...], [offline_id1, offline_id2, ...]]
+    """
+
+    method = 'https://api.vk.com/method/users.get'
+    users_list = []
+    online = []
+    offline = []
+
+    try:
+        print('[INFO] Выполняется сортировка друзей по онлайну.')
+
+        params_def = {
+            'user_ids': ', '.join(map(str, user_ids)),
+            'fields': 'online',
+            'access_token': token,
+            'v': '5.131'
+        }
+        resp = requests.get(method, params=params_def).json()
+        if 'response' in resp:
+            # если онлайн (1) - в список online
+            for user in resp.get('response'):
+                if user.get('online') == 1:
+                    online.append(user.get('id'))
+                elif user.get('online') == 0:
+                    offline.append(user.get('id'))
+        elif 'error' in resp:
+            if resp.get('error').get('error_code') == 14:
+                print('[INFO] Выполняется решении каптчи.')
+                captcha_sid = resp.get('error').get('captcha_sid')
+                captcha_img = resp.get('error').get('captcha_img')
+                captcha_key = captcha_solution(captcha_img)
+                captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
+                resp = requests.get(method, params={**params_def, **captcha_send}).json()
+                if resp.status_code == requests.codes.ok and 'response' in resp:
+                    print('[INFO] Повторный запрос на получение статусов онлайна отправлен.')
+        users_list.append(online)
+        users_list.append(offline)
+        print('[INFO] Сортировка друзей по онлайну выполнена.')
+        return users_list
+
+    except Exception as err:
+        print('[ERROR] Возникла ошибка при получении статусов онлайна.\n'
+              f'{err}')
+
+
 def main():
-    new_password = input('Введите новый пароль: ')
-    wait = int(input('Введите задержку при отправке сообщения в секундах: '))
-    coordinate_x = int(input('Введите координату x: '))
-    coordinate_y = int(input('Введите координату y: '))
-    message_txt = input('Введите текст сообщения: ')
+    with open('input_data.json') as file:
+        data = json.load(file)
+        new_password = data.get('data').get('new_password')
+        wait = data.get('data').get('wait')
+        coordinate_x = data.get('data').get('coordinate_x')
+        coordinate_y = data.get('data').get('coordinate_y')
+        message_txt = data.get('data').get('message_txt')
+
     auth_data = read_token()
 
     count_account = 1
@@ -419,19 +470,35 @@ def main():
         change_img(user_info, coordinate_x, coordinate_y)
         friends = get_friends(token)
         sleep(3)
+        sort_friends = sort_online(friends, token)
         id_msg = send_me_msg(user_id=user_info[0], token=token)
 
         count_friends = 0
-        for friend in friends:
+
+        print('[INFO] Выполняется рассылка по онлайн пользователям.')
+        for friend in sort_friends[0]:
             send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
             count_friends += 1
-            print(f'[INFO] Сообщение {count_friends} из {len(friends)}.\n'
+            print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[0])}.\n'
                   f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
                   f'Пауза на {wait} секунд.')
             if count_friends == 300:
                 print('[INFO] Достигнут лимит сообщений. Переходим к следующему аккаунту.')
                 break
             sleep(wait)
+
+        print('[INFO] Выполняется рассылка по оффлайн пользователям.')
+        for friend in sort_friends[1]:
+            send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
+            count_friends += 1
+            print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[1])}.\n'
+                  f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
+                  f'Пауза на {wait} секунд.')
+            if count_friends == 300:
+                print('[INFO] Достигнут лимит сообщений. Переходим к следующему аккаунту.')
+                break
+            sleep(wait)
+
         count_account += 1
 
 
