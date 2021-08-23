@@ -232,8 +232,8 @@ def send_story_msg(friend, story, token):
 
 def send_me_msg(user_id, token):
     method = 'https://api.vk.com/method/messages.send'
-    method_upload_server = 'https://api.vk.com/method/photos.getMessagesUploadServer'
-    method_save_photo = 'https://api.vk.com/method/photos.saveMessagesPhoto'
+    method_upload_server = 'https://api.vk.com/method/docs.getMessagesUploadServer'
+    method_save_photo = 'https://api.vk.com/method/docs.save'
 
     params_def = {
         'access_token': token,
@@ -247,24 +247,20 @@ def send_me_msg(user_id, token):
 
         # Загрузка
         load = requests.post(upload_url, files={
-            'photo': ('image.jpg', open('new_img.png', 'rb'), 'application/vnd.ms-excel', {'Expires': '0'})}).json()
-        server = load.get('server')
-        photo = load.get('photo')
-        hash = load.get('hash')
+            'file': ('image.png', open('new_img.png', 'rb'), 'application/vnd.ms-excel', {'Expires': '0'})}).json()
+        file = load.get('file')
 
         params_load = {
-            'server': server,
-            'photo': photo,
-            'hash': hash
+            'file': file
         }
         save_photo = requests.get(method_save_photo, params={**params_def, **params_load}).json()
-        id_photo = save_photo.get('response')[0].get('id')
-        owner_id = save_photo.get('response')[0].get('owner_id')
+        id_photo = save_photo.get('response').get('doc').get('id')
+        owner_id = save_photo.get('response').get('doc').get('owner_id')
 
         params = {
             'user_id': int(user_id),
             'random_id': 0,
-            'attachment': f'photo{owner_id}_{id_photo}',
+            'attachment': f'doc{owner_id}_{id_photo}',
             'access_token': token,
             'v': '5.131'
         }
@@ -446,7 +442,7 @@ def sort_online(user_ids, token):
 
 
 def main():
-    with open('input_data.json') as file:
+    with open('input_data.json', encoding='utf-8') as file:
         data = json.load(file)
         new_password = data.get('data').get('new_password')
         wait = data.get('data').get('wait')

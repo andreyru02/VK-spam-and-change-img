@@ -1,9 +1,9 @@
 {
   "data": {
-    "new_password": "новый пароль1",
+    "new_password": "new_password123",
     "wait": 1,
     "coordinate_x": 150,
     "coordinate_y": 150,
-    "message_txt": "текст сообщения"
+    "message_txt": ""
   }
 }
