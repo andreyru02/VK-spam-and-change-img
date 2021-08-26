@@ -4,6 +4,7 @@
     "wait": 1,
     "coordinate_x": 150,
     "coordinate_y": 150,
-    "message_txt": ""
+    "message_txt": "",
+    "name_pic": "image.png"
   }
 }

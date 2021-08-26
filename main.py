@@ -5,12 +5,22 @@ from PIL import Image, ImageDraw, ImageFont
 from python_rucaptcha import ImageCaptcha
 
 
+class ErrorPassword(Exception):
+    """Для вызова исключения при смене пароля владельцем аккаунта"""
+    pass
+
+
+class ErrorBan(Exception):
+    """Для вызова исключения при блокировке аккаунта"""
+    pass
+
+
 def read_token():
     """
     Чтение файла с данными авторизации token.txt
     :return ['login1:password1:token1', 'login2:password2:token3', ...]
     """
-    with open('token.txt') as file:
+    with open('token.txt', encoding='utf-8') as file:
         auth_data = file.readlines()
 
     print('[INFO] Данные из файла token.txt прочитаны.')
@@ -38,7 +48,7 @@ def change_password(auth_data, new_password):
         # Если смена пароля успешна, то записываем в файл spam.txt
         if 'response' in resp_json:
             token = resp_json.get('response').get('token')
-            with open('spam.txt', 'a') as file:
+            with open('spam.txt', 'a', encoding='utf-8') as file:
                 file.write(f'{auth_data[0]}:{new_password}:{token}\n')
             print('[INFO] Смена пароля выполнена успешно!\n'
                   'Новые данные сохранены в файле spam.txt')
@@ -97,20 +107,20 @@ def get_user_info(token):
         print(resp_json)
 
 
-def change_img(user_info, x, y):
+def change_img(user_info, x, y, name_pic):
     """
     Подставка имени и фамилии по координатам в изображение
     """
-    image = Image.open("image.png")
+    image = Image.open(name_pic)
     font = ImageFont.truetype("font.ttf", 26)
     drawer = ImageDraw.Draw(image)
     drawer.text((x, y), f"{user_info[1]} {user_info[2]}", font=font, fill='black')
-    image.save('new_img.png')
+    image.save(f'new_{name_pic}')
     print('[INFO] Выполнено изменение изображения.\n'
-          'Новое изображение сохранено с именем new_img.png')
+          f'Новое изображение сохранено с именем new_{name_pic}')
 
 
-def upload_stories(token):
+def upload_stories(token, name_pic):
     """
     Загрузка изображения в сторис
     :return [story_id, owner_id]
@@ -139,7 +149,7 @@ def upload_stories(token):
                 'access_token': token,
                 'v': '5.131'
             }
-            upload_file = requests.post(upload_url, files={'file': 'new_img.png'}, params=params)
+            upload_file = requests.post(upload_url, files={'file': name_pic}, params=params)
             upload_result = upload_file.json().get('response').get('upload_result')
             sig = upload_file.json().get('response').get('_sig')
         else:
@@ -230,7 +240,7 @@ def send_story_msg(friend, story, token):
               f'{err}')
 
 
-def send_me_msg(user_id, token):
+def send_me_msg(user_id, token, name_pic):
     method = 'https://api.vk.com/method/messages.send'
     method_upload_server = 'https://api.vk.com/method/docs.getMessagesUploadServer'
     method_save_photo = 'https://api.vk.com/method/docs.save'
@@ -247,7 +257,7 @@ def send_me_msg(user_id, token):
 
         # Загрузка
         load = requests.post(upload_url, files={
-            'file': ('image.png', open('new_img.png', 'rb'), 'application/vnd.ms-excel', {'Expires': '0'})}).json()
+            'file': (name_pic, open(name_pic, 'rb'), 'application/vnd.ms-excel', {'Expires': '0'})}).json()
         file = load.get('file')
 
         params_load = {
@@ -333,6 +343,13 @@ def send_msg(friend, message_txt, forward_msg, token):
                 resp = requests.get(method, params={**params_def, **captcha_send})
                 if resp.status_code == requests.codes.ok and 'response' in resp:
                     print('[INFO] Сообщение отправлено.')
+            elif resp.get('error').get('error_code') == 5:
+                if 'invalid session' in resp.get('error').get('error_msg'):
+                    print('[ERROR] Аккаунт невалид. Возможно владелец сменил пароль.')
+                    raise ErrorPassword
+                elif 'user is blocked' in resp.get('error').get('error_msg'):
+                    print('[ERROR] Аккаунт заблокирован!')
+                    raise ErrorBan
         else:
             print('[ERROR] Сообщение не отправлено.')
             print(resp.json())
@@ -348,7 +365,7 @@ def captcha_solution(captcha_img):
     """
     break_count = 3
     while break_count > 0:
-        with open('captcha.txt') as file:
+        with open('captcha.txt', encoding='utf-8') as file:
             rucaptcha_key = file.readline()
         # Ссылка на изображения для расшифровки
         image_link = captcha_img
@@ -414,6 +431,7 @@ def sort_online(user_ids, token):
             'v': '5.131'
         }
         resp = requests.get(method, params=params_def).json()
+        print(resp)
         if 'response' in resp:
             # если онлайн (1) - в список online
             for user in resp.get('response'):
@@ -449,6 +467,7 @@ def main():
         coordinate_x = data.get('data').get('coordinate_x')
         coordinate_y = data.get('data').get('coordinate_y')
         message_txt = data.get('data').get('message_txt')
+        name_pic = data.get('data').get('name_pic')
 
     auth_data = read_token()
 
@@ -463,11 +482,11 @@ def main():
         set_privacy(token)
         sleep(3)
         user_info = get_user_info(token)
-        change_img(user_info, coordinate_x, coordinate_y)
+        change_img(user_info, coordinate_x, coordinate_y, name_pic=name_pic)
         friends = get_friends(token)
         sleep(3)
         sort_friends = sort_online(friends, token)
-        id_msg = send_me_msg(user_id=user_info[0], token=token)
+        id_msg = send_me_msg(user_id=user_info[0], token=token, name_pic=name_pic)
 
         count_friends = 0
 
@@ -485,15 +504,20 @@ def main():
 
         print('[INFO] Выполняется рассылка по оффлайн пользователям.')
         for friend in sort_friends[1]:
-            send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
-            count_friends += 1
-            print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[1])}.\n'
-                  f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
-                  f'Пауза на {wait} секунд.')
-            if count_friends == 300:
-                print('[INFO] Достигнут лимит сообщений. Переходим к следующему аккаунту.')
-                break
-            sleep(wait)
+            try:
+                send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
+                count_friends += 1
+                print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[1])}.\n'
+                      f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
+                      f'Пауза на {wait} секунд.')
+                if count_friends == 300:
+                    print('[INFO] Достигнут лимит сообщений. Переходим к следующему аккаунту.')
+                    break
+                sleep(wait)
+            except ErrorPassword:
+                continue
+            except ErrorBan:
+                raise Exception('Аккаунт заблокирован. Работа скрипта остановлена!')
 
         count_account += 1
 
