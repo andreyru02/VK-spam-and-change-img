@@ -161,37 +161,46 @@ def send_story_msg(pic_name, token):
     }
 
     try:
-        upload = requests.get(method_upload_server, params={**params_def, **params_upload}).json()
-        upload_url = upload.get('response').get('upload_url')
+        break_count = 1
+        file_list = []
+        while break_count < 6:
+            upload = requests.get(method_upload_server, params={**params_def, **params_upload}).json()
+            upload_url = upload.get('response').get('upload_url')
 
-        load = requests.post(upload_url, files={
-            'file': (f'new_{pic_name}', open(f'new_{pic_name}', 'rb'),
-                     'application/vnd.ms-excel', {'Expires': '0'})}).json()
-        file = f"{load.get('response').get('upload_result')}, {load.get('_sig')}"
+            load = requests.post(upload_url, files={
+                'file': (f'new_{pic_name}', open(f'new_{pic_name}', 'rb'),
+                         'application/vnd.ms-excel', {'Expires': '0'})}).json()
+            file = f"{load.get('response').get('upload_result')}, {load.get('_sig')}"
 
-        save = requests.get(method_save_story, params={**params_def, **{'upload_results': file}}).json()
+            save = requests.post(method_save_story, params={**params_def, **{'upload_results': file}}).json()
 
-        print(save)
-
-        if 'response' in save:
-            print('[INFO] История загружена.')
-            owner_id = save.get('response').get('items')[0].get('owner_id')
-            story_id = save.get('response').get('items')[0].get('id')
-            access_key = save.get('response').get('items')[0].get('access_key')
-            return_data = {'owner_id': owner_id, 'story_id': story_id, 'access_key': access_key}
-
-            return return_data
-        elif 'error' in save:
-            if save.get('error').get('error_code') == 14:
-                print('[INFO] Выполняется решении каптчи.')
-                captcha_img = save.get('error').get('captcha_img')
-                captcha = captcha_solution(captcha_img)
-                resp = requests.get(method_save_story, params={**params_def, **captcha}).json()
-                if resp.status_code == requests.codes.ok and 'response' in resp:
-                    print('[INFO] История загружена.')
-        else:
             print(save)
-            raise Exception('Ошибка при загрузки истории. Работа остановлена.')
+
+            if 'response' in save:
+                print(f'[INFO] История {break_count} загружена.')
+                file_list.append(save)
+
+            elif 'error' in save:
+                if save.get('error').get('error_code') == 14:
+                    print('[INFO] Выполняется решении каптчи.')
+                    captcha_img = save.get('error').get('captcha_img')
+                    captcha = captcha_solution(captcha_img)
+                    resp = requests.get(method_save_story, params={**params_def, **captcha}).json()
+                    if resp.status_code == requests.codes.ok and 'response' in resp:
+                        file_list.append(list)
+                        print('[INFO] История загружена.')
+            else:
+                print(save)
+                raise Exception('Ошибка при загрузки истории. Работа остановлена.')
+            break_count += 1
+
+        owner_id = file_list[0].get('response').get('items')[0].get('owner_id')
+        story_id = file_list[0].get('response').get('items')[0].get('id')
+        access_key = file_list[0].get('response').get('items')[0].get('access_key')
+        return_data = {'owner_id': owner_id, 'story_id': story_id, 'access_key': access_key}
+
+        return return_data
+
     except Exception as err:
         print('Возникла ошибка при загрузки истории.\n'
               f'{err}')
