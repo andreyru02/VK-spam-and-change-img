@@ -91,7 +91,7 @@ def get_user_info(token):
 
         print(resp_json)
 
-        if resp.status_code == requests.codes.ok and 'response' in resp_json:
+        if 'response' in resp_json:
             user_info = []
             first_name = resp_json.get('response').get('first_name')
             last_name = resp_json.get('response').get('last_name')
@@ -308,8 +308,11 @@ def set_privacy(token):
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
                 resp = requests.get(method, params={**params, **captcha_send}).json()
-                if resp.status_code == requests.codes.ok and 'response' in resp:
+                if 'response' in resp:
                     print('[INFO] Настройки приватности установлены.')
+            else:
+                print(resp)
+                raise Exception('Возникла ошибка при изменении настроек приватности.')
     except Exception as err:
         print('[ERROR] Возникла ошибка при изменении настроек приватности.\n'
               f'{err}')
@@ -372,6 +375,7 @@ def get_new_token(password, auth_data):
           f'username={auth_data[0]}' \
           f'&password={password}'
     resp = requests.get(url).json()
+    print(resp)
     if 'access_token' in resp:
         new_token = resp.get('access_token')
         with open('spam.txt', 'a', encoding='utf-8') as file:
@@ -379,6 +383,21 @@ def get_new_token(password, auth_data):
         print('[INFO] Получение токена с правами доступа выполнено успешно!\n'
               'Новые данные сохранены в файле spam.txt')
         return new_token
+    elif 'error' in resp:
+        if resp.get('error') == 'need_captcha':
+            print('[INFO] Выполняется решении каптчи.')
+            captcha_sid = resp.get('captcha_sid')
+            captcha_img = resp.get('captcha_img')
+            captcha_key = captcha_solution(captcha_img)
+            captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
+            resp = requests.get(url, params=captcha_send).json()
+            print(resp)
+            if 'access_token' in resp:
+                print('[INFO] Повторный запрос на получение нового токена отправлен. Данные записаны.')
+                new_token = resp.get('access_token')
+                with open('spam.txt', 'a', encoding='utf-8') as file:
+                    file.write(f'{auth_data[0]}:{password}:{new_token}\n')
+                return new_token
     else:
         print(resp)
         raise Exception('Получить токен с правами доступа не удалось.')

@@ -257,7 +257,7 @@ def send_me_msg(user_id, token, name_pic):
 
         # Загрузка
         load = requests.post(upload_url, files={
-            'file': (name_pic, open(name_pic, 'rb'), 'application/vnd.ms-excel', {'Expires': '0'})}).json()
+            'file': (f'new_{name_pic}', open(f'new_{name_pic}', 'rb'), 'application/vnd.ms-excel', {'Expires': '0'})}).json()
         file = load.get('file')
 
         params_load = {
