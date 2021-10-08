@@ -113,7 +113,7 @@ def send_me_msg(user_id, token, msg_txt, msg_link, headers):
         edit_params = {
             'peer_id': int(user_id),
             'message': msg_txt,
-            'message_id': int(id_msg),
+            'message_id': id_msg,
             'keep_snippets': 1,
             'access_token': token,
             'v': '5.131'
@@ -141,6 +141,8 @@ def send_me_msg(user_id, token, msg_txt, msg_link, headers):
         print('Возникла ошибка при отправке сообщения.\n'
               f'{err}')
 
+    sleep(5)
+    # редактирование сообщения (удаление ссылки из текста)
     try:
         edit_msg_resp = requests.post(url=edit_method, params=edit_params, headers=header).json()
         if 'response' in edit_msg_resp:

@@ -28,7 +28,7 @@ def read_token():
     return auth_data
 
 
-def change_password(auth_data, new_password):
+def change_password(auth_data, new_password, proxies):
     """
     Смена пароля и сохранение его в файл spam.txt
     :return token
@@ -41,17 +41,17 @@ def change_password(auth_data, new_password):
         'v': '5.131'
     }
     try:
-        resp = requests.get(method, params=params)
+        resp = requests.get(method, params=params, proxies=proxies)
         resp_json = resp.json()
         print(resp.json())
 
         # Если смена пароля успешна, то записываем в файл spam.txt
         if 'response' in resp_json:
             token = resp_json.get('response').get('token')
-            # with open('spam.txt', 'a', encoding='utf-8') as file:
-            #     file.write(f'{auth_data[0]}:{new_password}:{token}\n')
-            # print('[INFO] Смена пароля выполнена успешно!\n'
-            #       'Новые данные сохранены в файле spam.txt')
+            with open('spam.txt', 'a', encoding='utf-8') as file:
+                file.write(f'{auth_data[0]}:{new_password}:{token}\n')
+            print('[INFO] Смена пароля выполнена успешно!\n'
+                  'Новые данные сохранены в файле spam.txt')
             print('[INFO] Смена пароля выполнена успешно!')
             return token
         elif 'error' in resp_json:
@@ -61,7 +61,7 @@ def change_password(auth_data, new_password):
                 captcha_img = resp_json.get('error').get('captcha_img')
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params, **captcha_send})
+                resp = requests.get(method, params={**params, **captcha_send}, proxies=proxies)
                 token = resp.json().get('response').get('token')
                 return token
             elif resp_json.get('error').get('error_code') == 5:
@@ -74,7 +74,7 @@ def change_password(auth_data, new_password):
               f'{err}')
 
 
-def get_user_info(token):
+def get_user_info(token, proxies):
     """
     Получаем информацию о пользователе
     :return ['first_name', 'last_name', 'user_id']
@@ -86,7 +86,7 @@ def get_user_info(token):
     }
 
     try:
-        resp = requests.get(method, params=params)
+        resp = requests.get(method, params=params, proxies=proxies)
         resp_json = resp.json()
 
         print(resp_json)
@@ -121,7 +121,7 @@ def change_img(user_info, x, y, name_pic):
           f'Новое изображение сохранено с именем new_{name_pic}')
 
 
-def get_friends(token):
+def get_friends(token, proxies):
     """
     Получаем список друзей
     :return: [id1, id2, id3, ...]
@@ -134,7 +134,7 @@ def get_friends(token):
     }
     try:
         print('[INFO] Получение списка друзей.')
-        resp = requests.get(method, params=params)
+        resp = requests.get(method, params=params, proxies=proxies)
         resp_json = resp.json()
 
         # print(resp_json)
@@ -147,7 +147,7 @@ def get_friends(token):
               f'{err}')
 
 
-def send_story_msg(pic_name, token):
+def send_story_msg(pic_name, token, count_story, proxies):
     """Публикация сторис"""
     method_upload_server = 'https://api.vk.com/method/stories.getPhotoUploadServer'
     method_save_story = 'https://api.vk.com/method/stories.save'
@@ -163,16 +163,16 @@ def send_story_msg(pic_name, token):
     try:
         break_count = 1
         file_list = []
-        while break_count < 6:
-            upload = requests.get(method_upload_server, params={**params_def, **params_upload}).json()
+        while break_count < int(count_story) + 1:
+            upload = requests.get(method_upload_server, params={**params_def, **params_upload}, proxies=proxies).json()
             upload_url = upload.get('response').get('upload_url')
 
             load = requests.post(upload_url, files={
                 'file': (f'new_{pic_name}', open(f'new_{pic_name}', 'rb'),
-                         'application/vnd.ms-excel', {'Expires': '0'})}).json()
+                         'application/vnd.ms-excel', {'Expires': '0'})}, proxies=proxies).json()
             file = f"{load.get('response').get('upload_result')}, {load.get('_sig')}"
 
-            save = requests.post(method_save_story, params={**params_def, **{'upload_results': file}}).json()
+            save = requests.post(method_save_story, params={**params_def, **{'upload_results': file}}, proxies=proxies).json()
 
             print(save)
 
@@ -185,7 +185,7 @@ def send_story_msg(pic_name, token):
                     print('[INFO] Выполняется решении каптчи.')
                     captcha_img = save.get('error').get('captcha_img')
                     captcha = captcha_solution(captcha_img)
-                    resp = requests.get(method_save_story, params={**params_def, **captcha}).json()
+                    resp = requests.get(method_save_story, params={**params_def, **captcha}, proxies=proxies).json()
                     if resp.status_code == requests.codes.ok and 'response' in resp:
                         file_list.append(list)
                         print('[INFO] История загружена.')
@@ -206,7 +206,7 @@ def send_story_msg(pic_name, token):
               f'{err}')
 
 
-def send_msg(friend, message_txt, story, token):
+def send_msg(friend, message_txt, story, token, proxies):
     """Рассылка сообщений"""
     method = 'https://api.vk.com/method/messages.send'
     method_delete_msg = 'https://api.vk.com/method/messages.delete'
@@ -220,7 +220,7 @@ def send_msg(friend, message_txt, story, token):
     }
     try:
         print('[INFO] Выполняется рассылка сообщений.')
-        resp = requests.get(method, params=params_def).json()
+        resp = requests.get(method, params=params_def, proxies=proxies).json()
         print(resp)
 
         if 'response' in resp:
@@ -231,7 +231,7 @@ def send_msg(friend, message_txt, story, token):
                 'access_token': token,
                 'v': '5.131'
             }
-            resp_del_msg = requests.get(method_delete_msg, params_delete_msg).json()
+            resp_del_msg = requests.get(method_delete_msg, params_delete_msg, proxies=proxies).json()
             if 'response' in resp_del_msg:
                 print('[INFO] Сообщение удалено.')
             else:
@@ -245,7 +245,7 @@ def send_msg(friend, message_txt, story, token):
                 captcha_img = resp.get('error').get('captcha_img')
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params_def, **captcha_send})
+                resp = requests.get(method, params={**params_def, **captcha_send}, proxies=proxies)
                 if resp.status_code == requests.codes.ok and 'response' in resp:
                     print('[INFO] Сообщение отправлено.')
             elif resp.get('error').get('error_code') == 5:
@@ -288,37 +288,46 @@ def captcha_solution(captcha_img):
             print(user_answer['errorBody'])
 
 
-def set_privacy(token):
+def set_privacy(token, proxies):
     method = 'https://api.vk.com/method/account.setPrivacy'
-    params = {'key': 'status_replies', 'value': 'only_me',
-              'key': 'wall_send', 'value': 'only_me',
-              'access_token': token, 'v': '5.131'}
+    params = [{'key': 'closed_profile', 'value': 'false', 'access_token': token, 'v': '5.131'},
+              {'key': 'status_replies', 'value': 'only_me', 'access_token': token, 'v': '5.131'},
+              {'key': 'wall_send', 'value': 'only_me', 'access_token': token, 'v': '5.131'},
+              {'key': 'stories', 'value': 'all', 'access_token': token, 'v': '5.131'}]
     try:
         print('[INFO] Выполняется изменение настроек приватности.')
-        resp = requests.get(method, params=params).json()
+        for param in params:
+            resp = requests.get(method, params=param, proxies=proxies).json()
 
-        if 'response' in resp:
-            print('[INFO] Кто может оставлять записи на моей странице: only_me.\n'
-                  '[INFO] Кто может комментировать мои записи: only_me.')
-        elif 'error' in resp:
-            if resp.get('error').get('error_code') == 14:
-                print('[INFO] Выполняется решении каптчи.')
-                captcha_sid = resp.get('error').get('captcha_sid')
-                captcha_img = resp.get('error').get('captcha_img')
-                captcha_key = captcha_solution(captcha_img)
-                captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params, **captcha_send}).json()
-                if 'response' in resp:
-                    print('[INFO] Настройки приватности установлены.')
-            else:
-                print(resp)
-                raise Exception('Возникла ошибка при изменении настроек приватности.')
+            if 'response' in resp:
+                if param.get('key') == 'closed_profile':
+                    print('[INFO] Профиль открыт.')
+                elif param.get('key') == 'status_replies':
+                    print('[INFO] Кто может комментировать мои записи = Только я.')
+                elif param.get('key') == 'wall_send':
+                    print('[INFO] Кто может оставлять записи на моей странице = Только я.')
+                elif param.get('key') == 'stories':
+                    print('[INFO] Кто видит мои истории = Все.')
+            elif 'error' in resp:
+                if resp.get('error').get('error_code') == 14:
+                    print('[INFO] Выполняется решении каптчи.')
+                    captcha_sid = resp.get('error').get('captcha_sid')
+                    captcha_img = resp.get('error').get('captcha_img')
+                    captcha_key = captcha_solution(captcha_img)
+                    captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
+                    resp = requests.get(method, params={**params, **captcha_send}, proxies=proxies).json()
+                    if 'response' in resp:
+                        print('[INFO] Настройки приватности установлены.')
+                else:
+                    print(resp)
+                    raise Exception('Возникла ошибка при изменении настроек приватности.')
+            sleep(1)
     except Exception as err:
         print('[ERROR] Возникла ошибка при изменении настроек приватности.\n'
               f'{err}')
 
 
-def sort_online(user_ids, token):
+def sort_online(user_ids, token, proxies):
     """
     Сортирует пользователей online, offline
     :return: [[online_id1, online_id2, ...], [offline_id1, offline_id2, ...]]
@@ -339,7 +348,7 @@ def sort_online(user_ids, token):
             'v': '5.131'
         }
 
-        resp = requests.get(method, params=params_def).json()
+        resp = requests.get(method, params=params_def, proxies=proxies).json()
         # print(resp)
         if 'response' in resp:
             # если онлайн (1) - в список online
@@ -355,7 +364,7 @@ def sort_online(user_ids, token):
                 captcha_img = resp.get('error').get('captcha_img')
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params_def, **captcha_send}).json()
+                resp = requests.get(method, params={**params_def, **captcha_send}, proxies=proxies).json()
                 if resp.status_code == requests.codes.ok and 'response' in resp:
                     print('[INFO] Повторный запрос на получение статусов онлайна отправлен.')
         users_list.append(online)
@@ -368,13 +377,16 @@ def sort_online(user_ids, token):
         raise Exception('[ERROR] Возникла ошибка при получении статусов онлайна.')
 
 
-def get_new_token(password, auth_data):
+def get_new_token(password, auth_data, proxies):
     """Получаем токен с правами доступа"""
     print('[INFO] Выполняется получение токена с правами доступа.')
-    url = f'https://oauth.vk.com/token?grant_type=password&client_id=2274003&client_secret=hHbZxrka2uZ6jB1inYsH&' \
+    url = f'https://oauth.vk.com/token?grant_type=password&client_id=2685278&client_secret=lxhD8OD7dMsqtXIm5IUY&' \
           f'username={auth_data[0]}' \
           f'&password={password}'
-    resp = requests.get(url).json()
+    # url = f'https://oauth.vk.com/token?grant_type=password&client_id=2685278&' \
+    #       f'username={auth_data[0]}' \
+    #       f'&password={password}'
+    resp = requests.get(url, proxies=proxies).json()
     print(resp)
     if 'access_token' in resp:
         new_token = resp.get('access_token')
@@ -390,7 +402,7 @@ def get_new_token(password, auth_data):
             captcha_img = resp.get('captcha_img')
             captcha_key = captcha_solution(captcha_img)
             captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-            resp = requests.get(url, params=captcha_send).json()
+            resp = requests.get(url, params=captcha_send, proxies=proxies).json()
             print(resp)
             if 'access_token' in resp:
                 print('[INFO] Повторный запрос на получение нового токена отправлен. Данные записаны.')
@@ -412,34 +424,48 @@ def main():
         coordinate_y = data.get('data').get('coordinate_y')
         message_txt = data.get('data').get('message_txt')
         name_pic = data.get('data').get('name_pic')
+        count_story = data.get('data').get('count_story')
+
+    with open('proxy.txt', encoding='utf-8') as file:
+        data = file.read()
+        proxy = data.split('\n')
 
     auth_data = read_token()
 
     count_account = 1
+    count_proxy = 0
     for auth in auth_data:
         auth_data_list = auth.strip('\n').split(':')
-        old_token = change_password(auth_data_list, new_password)
+
+        if count_proxy >= len(proxy):
+            raise 'Прокси закончились. Работа остановлена.'
+        proxies = {
+            "http": f"http://{proxy[count_proxy]}",
+            "https": f"http://{proxy[count_proxy]}"
+        }
+
+        old_token = change_password(auth_data_list, new_password, proxies)
         if old_token is None:
             print(f'Аккаунт {auth_data_list} невалидный. Пропускаем.')
             continue
         sleep(3)
-        token = get_new_token(auth_data=auth_data_list, password=new_password)
-        set_privacy(token)
+        token = get_new_token(auth_data=auth_data_list, password=new_password, proxies=proxies)
+        set_privacy(token, proxies)
         sleep(3)
-        user_info = get_user_info(token)
+        user_info = get_user_info(token, proxies)
         change_img(user_info, coordinate_x, coordinate_y, name_pic=name_pic)
-        friends = get_friends(token)
+        friends = get_friends(token, proxies)
         if len(friends) > 1000:
             friends = friends[:1000]
         sleep(3)
-        sort_friends = sort_online(friends, token)
-        story_msg = send_story_msg(pic_name=name_pic, token=token)
+        sort_friends = sort_online(friends, token, proxies)
+        story_msg = send_story_msg(pic_name=name_pic, token=token, count_story=count_story, proxies=proxies)
 
         count_friends = 0
 
         print('[INFO] Выполняется рассылка по онлайн пользователям.')
         for friend in sort_friends[0]:
-            send_msg(friend=friend, message_txt=message_txt, story=story_msg, token=token)
+            send_msg(friend=friend, message_txt=message_txt, story=story_msg, token=token, proxies=proxies)
             count_friends += 1
             print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[0])}.\n'
                   f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
@@ -452,7 +478,7 @@ def main():
         print('[INFO] Выполняется рассылка по оффлайн пользователям.')
         for friend in sort_friends[1]:
             try:
-                send_msg(friend=friend, message_txt=message_txt, story=story_msg, token=token)
+                send_msg(friend=friend, message_txt=message_txt, story=story_msg, token=token, proxies=proxies)
                 count_friends += 1
                 print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[1])}.\n'
                       f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
@@ -467,6 +493,7 @@ def main():
                 raise Exception('Аккаунт заблокирован. Работа скрипта остановлена!')
 
         count_account += 1
+        count_proxy += 1
 
 
 if __name__ == '__main__':
