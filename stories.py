@@ -426,22 +426,24 @@ def main():
         name_pic = data.get('data').get('name_pic')
         count_story = data.get('data').get('count_story')
 
-    with open('proxy.txt', encoding='utf-8') as file:
-        data = file.read()
-        proxy = data.split('\n')
-
     auth_data = read_token()
 
     count_account = 1
-    count_proxy = 0
+    # count_proxy = 0
     for auth in auth_data:
         auth_data_list = auth.strip('\n').split(':')
+        with open('proxy.txt', encoding='utf-8') as file:
+            proxy = file.readline().replace('\n', '')
 
-        if count_proxy >= len(proxy):
-            raise 'Прокси закончились. Работа остановлена.'
+        with open('proxy.txt', 'r') as f:
+            lines = f.readlines()
+
+        with open('proxy.txt', 'w') as f:
+            f.writelines(lines[1:])
+
         proxies = {
-            "http": f"http://{proxy[count_proxy]}",
-            "https": f"http://{proxy[count_proxy]}"
+            "http": f"http://{proxy}",
+            "https": f"http://{proxy}"
         }
 
         old_token = change_password(auth_data_list, new_password, proxies)
@@ -493,7 +495,7 @@ def main():
                 raise Exception('Аккаунт заблокирован. Работа скрипта остановлена!')
 
         count_account += 1
-        count_proxy += 1
+        # count_proxy += 1
 
 
 if __name__ == '__main__':

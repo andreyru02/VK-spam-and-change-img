@@ -27,7 +27,7 @@ def read_token():
     return auth_data
 
 
-def get_user_info(token, headers):
+def get_user_info(token, headers, proxies):
     """
     Получаем информацию о пользователе
     :return ['first_name', 'last_name', 'user_id']
@@ -40,7 +40,7 @@ def get_user_info(token, headers):
     header = {'User-Agent': headers}
 
     try:
-        resp = requests.get(method, params=params, headers=header)
+        resp = requests.get(method, params=params, headers=header, proxies=proxies)
         resp_json = resp.json()
 
         print(resp_json)
@@ -62,7 +62,7 @@ def get_user_info(token, headers):
         print(resp_json)
 
 
-def get_friends(token, headers):
+def get_friends(token, headers, proxies):
     """
     Получаем список друзей
     :return: [id1, id2, id3, ...]
@@ -77,7 +77,7 @@ def get_friends(token, headers):
 
     try:
         print('[INFO] Получение списка друзей.')
-        resp = requests.get(method, params=params, headers=header)
+        resp = requests.get(method, params=params, headers=header, proxies=proxies)
         resp_json = resp.json()
 
         print(resp_json)
@@ -90,7 +90,7 @@ def get_friends(token, headers):
               f'{err}')
 
 
-def send_me_msg(user_id, token, msg_txt, msg_link, headers):
+def send_me_msg(user_id, token, msg_txt, msg_link, headers, proxies):
     method = 'https://api.vk.com/method/messages.send'
     edit_method = 'https://api.vk.com/method/messages.edit'
 
@@ -107,7 +107,7 @@ def send_me_msg(user_id, token, msg_txt, msg_link, headers):
         header = {'User-Agent': headers}
 
         # Отправка сообщения себе
-        resp = requests.post(url=method, params=params, headers=header).json()
+        resp = requests.post(url=method, params=params, headers=header, proxies=proxies).json()
         id_msg = resp.get('response')
 
         edit_params = {
@@ -129,7 +129,7 @@ def send_me_msg(user_id, token, msg_txt, msg_link, headers):
                 captcha_img = resp.get('error').get('captcha_img')
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params, **captcha_send}, headers=header)
+                resp = requests.get(method, params={**params, **captcha_send}, headers=header, proxies=proxies)
                 if resp.status_code == requests.codes.ok and 'response' in resp.json():
                     print('[INFO] Сообщение отправлено.')
                     # return id_msg
@@ -144,7 +144,7 @@ def send_me_msg(user_id, token, msg_txt, msg_link, headers):
     sleep(5)
     # редактирование сообщения (удаление ссылки из текста)
     try:
-        edit_msg_resp = requests.post(url=edit_method, params=edit_params, headers=header).json()
+        edit_msg_resp = requests.post(url=edit_method, params=edit_params, headers=header, proxies=proxies).json()
         if 'response' in edit_msg_resp:
             print('[INFO] Сообщение для рассылки отредактировано.')
             return id_msg
@@ -155,7 +155,8 @@ def send_me_msg(user_id, token, msg_txt, msg_link, headers):
                 captcha_img = resp.get('error').get('captcha_img')
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                edit_msg_resp = requests.get(edit_method, params={**edit_params, **captcha_send}, headers=header)
+                edit_msg_resp = requests.get(edit_method, params={**edit_params, **captcha_send},
+                                             headers=header, proxies=proxies)
                 if edit_msg_resp.status_code == requests.codes.ok and 'response' in edit_msg_resp.json():
                     print('[INFO] Сообщение отредактировано.')
                     return id_msg
@@ -167,7 +168,7 @@ def send_me_msg(user_id, token, msg_txt, msg_link, headers):
               f'{err}')
 
 
-def send_msg(friend, forward_msg, token, headers):
+def send_msg(friend, forward_msg, token, headers, proxies):
     """Рассылка сообщений"""
     method = 'https://api.vk.com/method/messages.send'
     method_delete_msg = 'https://api.vk.com/method/messages.delete'
@@ -182,7 +183,7 @@ def send_msg(friend, forward_msg, token, headers):
 
     try:
         print('[INFO] Выполняется рассылка сообщений.')
-        resp = requests.get(method, params=params_def, headers=header).json()
+        resp = requests.get(method, params=params_def, headers=header, proxies=proxies).json()
         print(resp)
 
         if 'response' in resp:
@@ -194,7 +195,7 @@ def send_msg(friend, forward_msg, token, headers):
                 'v': '5.131'
             }
 
-            resp_del_msg = requests.get(method_delete_msg, params_delete_msg, headers=header).json()
+            resp_del_msg = requests.get(method_delete_msg, params_delete_msg, headers=header, proxies=proxies).json()
             if 'response' in resp_del_msg:
                 print('[INFO] Сообщение удалено.')
             else:
@@ -208,7 +209,7 @@ def send_msg(friend, forward_msg, token, headers):
                 captcha_img = resp.get('error').get('captcha_img')
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params_def, **captcha_send}, headers=header)
+                resp = requests.get(method, params={**params_def, **captcha_send}, headers=header, proxies=proxies)
                 if resp.status_code == requests.codes.ok and 'response' in resp:
                     print('[INFO] Сообщение отправлено.')
             elif resp.get('error').get('error_code') == 5:
@@ -251,7 +252,7 @@ def captcha_solution(captcha_img):
             print(user_answer['errorBody'])
 
 
-def sort_online(user_ids, token, headers):
+def sort_online(user_ids, token, headers, proxies):
     """
     Сортирует пользователей online, offline
     :return: [[online_id1, online_id2, ...], [offline_id1, offline_id2, ...]]
@@ -272,7 +273,7 @@ def sort_online(user_ids, token, headers):
             'v': '5.131'
         }
         header = {'User-Agent': headers}
-        resp = requests.get(method, params=params_def, headers=header).json()
+        resp = requests.get(method, params=params_def, headers=header, proxies=proxies).json()
         # print(resp)
         if 'response' in resp:
             # если онлайн (1) - в список online
@@ -288,7 +289,8 @@ def sort_online(user_ids, token, headers):
                 captcha_img = resp.get('error').get('captcha_img')
                 captcha_key = captcha_solution(captcha_img)
                 captcha_send = {'captcha_sid': captcha_sid, 'captcha_key': captcha_key}
-                resp = requests.get(method, params={**params_def, **captcha_send}, headers=header).json()
+                resp = requests.get(method, params={**params_def, **captcha_send}, headers=header,
+                                    proxies=proxies).json()
                 if resp.status_code == requests.codes.ok and 'response' in resp:
                     print('[INFO] Повторный запрос на получение статусов онлайна отправлен.')
         users_list.append(online)
@@ -324,22 +326,38 @@ def main():
     for auth in auth_data:
         for header in read_header:
             auth_data_list = auth.strip('\n').split(':')
+
+            with open('proxy.txt', encoding='utf-8') as file:
+                proxy = file.readline().replace('\n', '')
+
+            with open('proxy.txt', 'r') as f:
+                lines = f.readlines()
+
+            with open('proxy.txt', 'w') as f:
+                f.writelines(lines[1:])
+
+            proxies = {
+                "http": f"http://{proxy}",
+                "https": f"http://{proxy}"
+            }
+
             token = auth_data_list[2]
             headers = header.strip('\n')
 
-            user_info = get_user_info(token, headers=headers)
-            friends = get_friends(token, headers=headers)
+            user_info = get_user_info(token, headers=headers, proxies=proxies)
+            friends = get_friends(token, headers=headers, proxies=proxies)
             if len(friends) > 1000:
                 friends = friends[:1000]
             sleep(3)
-            sort_friends = sort_online(friends, token, headers=headers)
-            id_msg = send_me_msg(user_id=user_info[0], token=token, msg_txt=message_txt, msg_link=link, headers=headers)
+            sort_friends = sort_online(friends, token, headers=headers, proxies=proxies)
+            id_msg = send_me_msg(user_id=user_info[0], token=token, msg_txt=message_txt, msg_link=link,
+                                 headers=headers, proxies=proxies)
 
             count_friends = 0
 
             print('[INFO] Выполняется рассылка по онлайн пользователям.')
             for friend in sort_friends[0]:
-                send_msg(friend=friend, forward_msg=id_msg, token=token, headers=headers)
+                send_msg(friend=friend, forward_msg=id_msg, token=token, headers=headers, proxies=proxies)
                 count_friends += 1
                 print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[0])}.\n'
                       f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
@@ -352,7 +370,7 @@ def main():
             print('[INFO] Выполняется рассылка по оффлайн пользователям.')
             for friend in sort_friends[1]:
                 try:
-                    send_msg(friend=friend, forward_msg=id_msg, token=token, headers=headers)
+                    send_msg(friend=friend, forward_msg=id_msg, token=token, headers=headers, proxies=proxies)
                     count_friends += 1
                     print(f'[INFO] Сообщение {count_friends} из {len(sort_friends[1])}.\n'
                           f'[INFO] Аккаунт {count_account} из {len(auth_data)}.\n'
